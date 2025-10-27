@@ -3,6 +3,10 @@ import requests, subprocess, os
 
 app = FastAPI()
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 @app.post("/process")
 def process_video(driveLink: str = Form(...)):
     # 1. Drive 영상 다운로드
