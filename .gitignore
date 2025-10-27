@@ -7,7 +7,6 @@ __pycache__/
 *.ckpt
 out/
 *.mp4
-*.txt
 *.csv
 
 # 가상환경

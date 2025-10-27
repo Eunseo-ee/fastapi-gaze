@@ -1,0 +1,7 @@
+# 원본 스크립트에서 import된 모듈 보고 추가
+fastapi
+uvicorn
+requests
+torch
+opencv-python
+numpy
