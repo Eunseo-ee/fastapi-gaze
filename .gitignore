@@ -1,0 +1,19 @@
+# Python 캐시
+__pycache__/
+*.pyc
+
+# 모델, 결과 파일
+*.pt
+*.ckpt
+out/
+*.mp4
+*.txt
+*.csv
+
+# 가상환경
+venv/
+.env/
+
+# IDE/OS 파일
+.vscode/
+.DS_Store
