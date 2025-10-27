@@ -1,7 +1,13 @@
-# 원본 스크립트에서 import된 모듈 보고 추가
+torch
+torchvision
+einops
+numpy
+pandas
+termcolor
+opencv-python
+Pillow
+transformers
+tqdm
 fastapi
 uvicorn
 requests
-torch
-opencv-python
-numpy
