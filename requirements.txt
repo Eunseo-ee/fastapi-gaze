@@ -1,10 +1,40 @@
-import torch
-import torchvision.transforms.functional as TF
-import numpy as np
+# -------------------- Core --------------------
+fastapi
+uvicorn
+python-multipart
+requests
 
-import torchmetrics as tm
-from torchmetrics.functional.classification.auroc import binary_auroc
-from torchmetrics.functional.classification import binary_precision
+# -------------------- Google Drive --------------------
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
 
+# -------------------- Deep Learning / CV --------------------
+torch
+torchvision
+torchaudio
+torchmetrics
+pytorch-lightning
+ultralytics
+opencv-python
+Pillow
+numpy
+pandas
+scipy
+tqdm
+einops
+transformers
+termcolor
 
-from src.utils.common import generate_binary_gaze_heatmap, spatial_argmax2d, is_point_in_box
+# -------------------- Visualization & Debug --------------------
+matplotlib
+seaborn
+wandb
+
+# -------------------- Utility / Helpers --------------------
+typing-extensions
+pathlib
+imageio
+imageio-ffmpeg
+scikit-learn
