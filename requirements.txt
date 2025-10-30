@@ -1,14 +1,31 @@
-torch
-torchvision
-einops
-numpy
-pandas
-termcolor
-opencv-python
-Pillow
-transformers
-tqdm
+# ---- Core Web Framework ----
 fastapi
 uvicorn
-requests
 python-multipart
+requests
+
+# ---- Google Drive API ----
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+
+# ---- ML / DL (YOLO + Torch + Utils) ----
+ultralytics
+torch
+torchvision
+opencv-python
+Pillow
+numpy
+tqdm
+pandas
+typing-extensions
+scipy
+
+# ---- Image/Video Handling ----
+imageio
+imageio-ffmpeg
+
+# ---- System / Utility ----
+pathlib
+typing
