@@ -1,31 +1,10 @@
-# ---- Core Web Framework ----
-fastapi
-uvicorn
-python-multipart
-requests
+import torch
+import torchvision.transforms.functional as TF
+import numpy as np
 
-# ---- Google Drive API ----
-google-auth
-google-auth-oauthlib
-google-auth-httplib2
-google-api-python-client
+import torchmetrics as tm
+from torchmetrics.functional.classification.auroc import binary_auroc
+from torchmetrics.functional.classification import binary_precision
 
-# ---- ML / DL (YOLO + Torch + Utils) ----
-ultralytics
-torch
-torchvision
-opencv-python
-Pillow
-numpy
-tqdm
-pandas
-typing-extensions
-scipy
 
-# ---- Image/Video Handling ----
-imageio
-imageio-ffmpeg
-
-# ---- System / Utility ----
-pathlib
-typing
+from src.utils.common import generate_binary_gaze_heatmap, spatial_argmax2d, is_point_in_box
