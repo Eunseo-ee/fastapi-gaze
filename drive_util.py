@@ -8,23 +8,33 @@ SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
 def get_drive_service():
+    """로컬 또는 Render 환경에 따라 Drive 인증 자동 처리"""
     creds = None
-    if os.path.exists("tokens/drive_token.json"):
-        creds = Credentials.from_authorized_user_file("tokens/drive_token.json", SCOPES)
+
+    # 1️⃣ 토큰 파일이 있으면 우선 사용
+    if os.path.exists(TOKENS_PATH):
+        creds = Credentials.from_authorized_user_file(TOKENS_PATH, SCOPES)
+
+    # 2️⃣ 토큰이 없거나 만료된 경우 (로컬일 때만 새로 로그인)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            # Render는 여기서 인증창이 안 뜨므로 실행 안 됨 (로컬에서만 작동)
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
             creds = flow.run_local_server(port=0)
-        os.makedirs("tokens", exist_ok=True)
-        with open("tokens/drive_token.json", "w") as token:
-            token.write(creds.to_json())
+
+        # 토큰 저장 (로컬용)
+        if not os.path.exists("/etc/secrets"):
+            os.makedirs("tokens", exist_ok=True)
+            with open("tokens/drive_token.json", "w") as token:
+                token.write(creds.to_json())
+
     return build("drive", "v3", credentials=creds)
 
 
 def upload_to_drive(file_path: str, folder_id: str = None):
-    """파일을 Google Drive에 업로드하고 공유 링크 반환"""
+    """Google Drive에 파일 업로드 후 공유 링크 반환"""
     service = get_drive_service()
 
     file_metadata = {"name": os.path.basename(file_path)}
@@ -39,9 +49,10 @@ def upload_to_drive(file_path: str, folder_id: str = None):
     )
 
     file_id = uploaded.get("id")
-    # 링크 공개 설정
+
+    # 공개 링크로 전환
     service.permissions().create(
         fileId=file_id, body={"role": "reader", "type": "anyone"}
     ).execute()
-    link = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
-    return link
+
+    return f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"

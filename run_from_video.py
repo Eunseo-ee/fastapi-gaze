@@ -583,14 +583,31 @@ def write_ranking_txt(
     print(f"[SAVE] ranking saved to: {out_path}", file=sys.stderr)
 
 
+import os
+from pathlib import Path
+
+# --- 경로 자동 감지 (로컬 or Render) ---
+CREDENTIALS_PATH = (
+    "/etc/secrets/credentials.json"
+    if os.path.exists("/etc/secrets/credentials.json")
+    else "credentials.json"
+)
+
+TOKENS_PATH = (
+    "/etc/secrets/drive_token.json"
+    if os.path.exists("/etc/secrets/drive_token.json")
+    else "tokens/drive_token.json"
+)
+
+
 def upload_to_drive(file_path, mime_type="video/mp4", folder_id=None):
     """
     Google Drive에 파일 업로드 후 (webContentLink, webViewLink) 반환
     """
-
-    creds_path = "tokens/drive_token.json"  # 기존 토큰 경로
     scopes = ["https://www.googleapis.com/auth/drive.file"]
-    creds = Credentials.from_authorized_user_file(creds_path, scopes)
+
+    # ✅ 경로 수정: Render 환경에서는 /etc/secrets/drive_token.json 사용
+    creds = Credentials.from_authorized_user_file(TOKENS_PATH, scopes)
     service = build("drive", "v3", credentials=creds)
 
     file_metadata = {"name": Path(file_path).name}
