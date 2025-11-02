@@ -37,6 +37,10 @@ COLOR_HIT = (0, 255, 255)  # 노랑
 COLOR_HEAD = (255, 180, 80)  # 하늘/주황톤
 COLOR_GAZE = (0, 0, 255)  # 빨강
 
+# run_from_video.py 맨 위 (import들 밑)
+OUT_DIR = Path("out")
+OUT_DIR.mkdir(exist_ok=True)
+
 # ========================= UTILITY FUNCTIONS =========================== #
 def resolve_path(p: str | Path) -> Path:
     """
