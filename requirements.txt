@@ -1,14 +1,40 @@
-torch
-torchvision
-einops
-numpy
-pandas
-termcolor
-opencv-python
-Pillow
-transformers
-tqdm
+# -------------------- Core --------------------
 fastapi
 uvicorn
-requests
 python-multipart
+requests
+
+# -------------------- Google Drive --------------------
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+
+# -------------------- Deep Learning / CV --------------------
+torch
+torchvision
+torchaudio
+torchmetrics
+pytorch-lightning
+ultralytics
+opencv-python
+Pillow
+numpy
+pandas
+scipy
+tqdm
+einops
+transformers
+termcolor
+
+# -------------------- Visualization & Debug --------------------
+matplotlib
+seaborn
+wandb
+
+# -------------------- Utility / Helpers --------------------
+typing-extensions
+pathlib
+imageio
+imageio-ffmpeg
+scikit-learn

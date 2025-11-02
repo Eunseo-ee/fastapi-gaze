@@ -10,6 +10,10 @@ from ultralytics import YOLO
 from collections import defaultdict
 from typing import List, Tuple, Optional, Dict
 import torchvision.transforms.functional as TF
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
+import sys
 
 
 from src.modeling.sharingan import Sharingan
@@ -18,8 +22,8 @@ from src.utils.common import spatial_argmax2d, square_bbox
 
 DET_THR = 0.2  # head detection threshold
 CONF_THR = 0.25
-IOU_THR  = 0.45
-NUM_CLASSES = 6                                           # 0~5만 사용(필요 없으면 None)
+IOU_THR = 0.45
+NUM_CLASSES = 6  # 0~5만 사용(필요 없으면 None)
 
 # CKPT_PATH = "checkpoints/best_gaze_synth_experiment_3.ckpt" # Sharingan ckpt 경로
 # OBJ_MODEL_PATH = "weights/detect_experiment_object.pt"    # 물체 YOLO 가중치
@@ -28,7 +32,7 @@ NUM_CLASSES = 6                                           # 0~5만 사용(필요
 
 
 IMG_MEAN = [0.461037, 0.486372, 0.471720]
-IMG_STD  = [0.212238, 0.208506, 0.205668]
+IMG_STD = [0.212238, 0.208506, 0.205668]
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,9 +41,12 @@ COLOR_HIT = (0, 255, 255)  # 노랑
 COLOR_HEAD = (255, 180, 80)  # 하늘/주황톤
 COLOR_GAZE = (0, 0, 255)  # 빨강
 
+<<<<<<< HEAD
 # run_from_video.py 맨 위 (import들 밑)
 OUT_DIR = Path("out")
 OUT_DIR.mkdir(exist_ok=True)
+=======
+>>>>>>> 7b44e295554171549be8d52bc6659477270c1c00
 
 # ========================= UTILITY FUNCTIONS =========================== #
 def resolve_path(p: str | Path) -> Path:
@@ -51,6 +58,7 @@ def resolve_path(p: str | Path) -> Path:
     p = Path(p).expanduser()
     return p if p.is_absolute() else (Path.cwd() / p).resolve()
 
+
 def expand_bbox(bbox, img_w, img_h, k=0.1):
     w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
     bbox[0] = max(0, bbox[0] - k * w)
@@ -59,8 +67,10 @@ def expand_bbox(bbox, img_w, img_h, k=0.1):
     bbox[3] = min(img_h, bbox[3] + k * h)
     return bbox
 
-def expand_xyxy_rel_img(xyxy: np.ndarray, img_w: int, img_h: int,
-                        kx: float = 0.02, ky: float = 0.02) -> np.ndarray:
+
+def expand_xyxy_rel_img(
+    xyxy: np.ndarray, img_w: int, img_h: int, kx: float = 0.02, ky: float = 0.02
+) -> np.ndarray:
     """
     xyxy: (N,4) [x1,y1,x2,y2] float32
     img_w, img_h: 이미지 크기
@@ -77,11 +87,13 @@ def expand_xyxy_rel_img(xyxy: np.ndarray, img_w: int, img_h: int,
     out[:, 3] = np.minimum(img_h - 1.0, out[:, 3] + dy)
     return out.astype(np.float32)
 
+
 def load_obj_detection_model(device, weights_path: Optional[str] = None):
     model = YOLO(weights_path)
     model = model.to(device)
     model.eval()
     return model
+
 
 def load_head_detection_model(device, weights_path: Optional[str] = None):
     model = YOLO(weights_path)
@@ -89,25 +101,42 @@ def load_head_detection_model(device, weights_path: Optional[str] = None):
     model.eval()
     return model
 
+
 def detect_heads(image, model):
     image_cv = np.array(image)[..., ::-1]
-    results = model(image_cv, imgsz=640, conf=0.25, iou=0.45, classes=[0], amp=False,verbose=False)
-    boxes = results[0].boxes.xyxy.cpu().numpy()     # (N, 4)
-    confs = results[0].boxes.conf.cpu().numpy()     # (N,)
-    detections = np.hstack([boxes, confs[:, None]]) # (N, 5)
+    results = model(
+        image_cv, imgsz=640, conf=0.25, iou=0.45, classes=[0], amp=False, verbose=False
+    )
+    boxes = results[0].boxes.xyxy.cpu().numpy()  # (N, 4)
+    confs = results[0].boxes.conf.cpu().numpy()  # (N,)
+    detections = np.hstack([boxes, confs[:, None]])  # (N, 5)
     return detections
+
 
 def load_sharingan_model(ckpt_path, device):
     sharingan = Sharingan(
-        patch_size=16, token_dim=768, image_size=224, gaze_feature_dim=512,
-        encoder_depth=12, encoder_num_heads=12, encoder_num_global_tokens=0,
-        encoder_mlp_ratio=4.0, encoder_use_qkv_bias=True,
-        encoder_drop_rate=0.0, encoder_attn_drop_rate=0.0, encoder_drop_path_rate=0.0,
-        decoder_feature_dim=128, decoder_hooks=[2, 5, 8, 11],
-        decoder_hidden_dims=[48, 96, 192, 384], decoder_use_bn=True,
+        patch_size=16,
+        token_dim=768,
+        image_size=224,
+        gaze_feature_dim=512,
+        encoder_depth=12,
+        encoder_num_heads=12,
+        encoder_num_global_tokens=0,
+        encoder_mlp_ratio=4.0,
+        encoder_use_qkv_bias=True,
+        encoder_drop_rate=0.0,
+        encoder_attn_drop_rate=0.0,
+        encoder_drop_path_rate=0.0,
+        decoder_feature_dim=128,
+        decoder_hooks=[2, 5, 8, 11],
+        decoder_hidden_dims=[48, 96, 192, 384],
+        decoder_use_bn=True,
     )
-    checkpoint = torch.load(ckpt_path, map_location="cpu")
-    checkpoint = {name.replace("model.", ""): value for name, value in checkpoint["state_dict"].items()}
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    checkpoint = {
+        name.replace("model.", ""): value
+        for name, value in checkpoint["state_dict"].items()
+    }
     sharingan.load_state_dict(checkpoint, strict=True)
     sharingan.eval()
     sharingan.to(device)
@@ -117,7 +146,7 @@ def load_sharingan_model(ckpt_path, device):
 def rank_interest_scores(
     interest: Dict[int, int],
     class_names: Optional[List[str]] = None,
-    top_k: Optional[int] = None
+    top_k: Optional[int] = None,
 ) -> List[Tuple[int, int, str]]:
     """
     관심도 dict를 점수 내림차순으로 정렬하여 [(cls_id, score, name)] 리스트 반환
@@ -127,9 +156,12 @@ def rank_interest_scores(
         ranked = ranked[:top_k]
     out = []
     for cid, score in ranked:
-        name = class_names[cid] if (class_names and 0 <= cid < len(class_names)) else "-"
+        name = (
+            class_names[cid] if (class_names and 0 <= cid < len(class_names)) else "-"
+        )
         out.append((cid, score, name))
     return out
+
 
 def predict_gaze(image, sharingan, head_detector, tracker=None):
     # 1. Convert image
@@ -142,18 +174,22 @@ def predict_gaze(image, sharingan, head_detector, tracker=None):
         bbox, conf = raw[:4], raw[4]
         if conf > DET_THR:
             bbox = expand_bbox(bbox, img_w, img_h, k=0.2)
-            cls_ = np.array([0.])
-            detection = np.concatenate([bbox, conf[None], cls_])  # [x1,y1,x2,y2,conf,class_id]
+            cls_ = np.array([0.0])
+            detection = np.concatenate(
+                [bbox, conf[None], cls_]
+            )  # [x1,y1,x2,y2,conf,class_id]
             detections.append(detection)
 
     if len(detections) == 0:
-        return (torch.tensor([]),)*6  # gaze_points, gaze_vecs, inouts, head_bboxes, gaze_heatmaps, pids
+        return (
+            torch.tensor([]),
+        ) * 6  # gaze_points, gaze_vecs, inouts, head_bboxes, gaze_heatmaps, pids
 
     detections = np.stack(detections)
     if tracker is not None:
         tracks = tracker.update(detections, image_np)
         if len(tracks) == 0:
-            return (torch.tensor([]),)*6
+            return (torch.tensor([]),) * 6
         pids = (tracks[:, 4] - 1).astype(int)
         head_bboxes = torch.from_numpy(tracks[:, :4]).float()
     else:
@@ -165,7 +201,9 @@ def predict_gaze(image, sharingan, head_detector, tracker=None):
     # 3. Extract and transform heads
     heads = []
     for bbox in t_head_bboxes:
-        head = TF.resize(TF.to_tensor(image.crop(bbox.numpy())), (224, 224), antialias=True)
+        head = TF.resize(
+            TF.to_tensor(image.crop(bbox.numpy())), (224, 224), antialias=True
+        )
         heads.append(head)
     heads = torch.stack(heads)
     heads = TF.normalize(heads, mean=IMG_MEAN, std=IMG_STD)
@@ -196,31 +234,42 @@ def predict_gaze(image, sharingan, head_detector, tracker=None):
 
     return gaze_points, gaze_vecs, inouts, head_bboxes, gaze_heatmaps, pids
 
-def point_in_any_box(pt: Tuple[float,float], boxes_xyxy: np.ndarray):
+
+def point_in_any_box(pt: Tuple[float, float], boxes_xyxy: np.ndarray):
     """포인트가 포함된 박스 인덱스(여럿이면 더 작은 박스 우선). 없으면 None."""
     if boxes_xyxy.size == 0:
         return None
     x, y = pt
-    inside = (boxes_xyxy[:,0] <= x) & (x <= boxes_xyxy[:,2]) & (boxes_xyxy[:,1] <= y) & (y <= boxes_xyxy[:,3])
+    inside = (
+        (boxes_xyxy[:, 0] <= x)
+        & (x <= boxes_xyxy[:, 2])
+        & (boxes_xyxy[:, 1] <= y)
+        & (y <= boxes_xyxy[:, 3])
+    )
     idxs = np.where(inside)[0]
     if len(idxs) == 0:
         return None
-    areas = (boxes_xyxy[idxs,2]-boxes_xyxy[idxs,0])*(boxes_xyxy[idxs,3]-boxes_xyxy[idxs,1])
+    areas = (boxes_xyxy[idxs, 2] - boxes_xyxy[idxs, 0]) * (
+        boxes_xyxy[idxs, 3] - boxes_xyxy[idxs, 1]
+    )
     return idxs[np.argmin(areas)]
 
 
 # ========================= 비디오 처리 유틸 ========================= #
 
-def safe_open_video_writer(out_path: str, fps: float, size: tuple[int,int]) -> cv2.VideoWriter:
+
+def safe_open_video_writer(
+    out_path: str, fps: float, size: tuple[int, int]
+) -> cv2.VideoWriter:
     W, H = size
     ext = Path(out_path).suffix.lower()
 
     # 1) 우선 컨테이너에 맞는 코덱 시도
     if ext == ".mp4":
         candidates = [
-            ("mp4v", ".mp4"),   # 가장 무난
-            ("avc1", ".mp4"),   # H.264 (인코더 필요)
-            ("H264", ".mp4"),   # 같은 계열
+            ("mp4v", ".mp4"),  # 가장 무난
+            ("avc1", ".mp4"),  # H.264 (인코더 필요)
+            ("H264", ".mp4"),  # 같은 계열
         ]
     else:
         candidates = [
@@ -235,20 +284,26 @@ def safe_open_video_writer(out_path: str, fps: float, size: tuple[int,int]) -> c
         vw = cv2.VideoWriter(path_try, fourcc, max(fps, 1.0), (W, H))
         if vw.isOpened():
             if path_try != out_path:
-                print(f"[INFO] changed output to {path_try} (codec={fourcc_tag})")
+                print(
+                    f"[INFO] changed output to {path_try} (codec={fourcc_tag})",
+                    file=sys.stderr,
+                )
             return vw
-
 
     for fourcc_tag in ["XVID", "MJPG"]:
         path_try = str(Path(out_path).with_suffix(".avi"))
         fourcc = cv2.VideoWriter_fourcc(*fourcc_tag)
         vw = cv2.VideoWriter(path_try, fourcc, max(fps, 1.0), (W, H))
         if vw.isOpened():
-            print(f"[INFO] fallback to {path_try} (codec={fourcc_tag})")
+            print(
+                f"[INFO] fallback to {path_try} (codec={fourcc_tag})", file=sys.stderr
+            )
             return vw
 
-    raise RuntimeError("Failed to open VideoWriter with common codecs. "
-                       "Install FFmpeg with x264/x265 or use AVI/MJPG.")
+    raise RuntimeError(
+        "Failed to open VideoWriter with common codecs. "
+        "Install FFmpeg with x264/x265 or use AVI/MJPG."
+    )
 
 
 def run_object_detector_on_frame(
@@ -265,15 +320,15 @@ def run_object_detector_on_frame(
         cls:  (N,)  int64
     """
     if frame_bgr is None or frame_bgr.size == 0:
-        raise RuntimeError('frame_bgr cannot be None')
+        raise RuntimeError("frame_bgr cannot be None")
 
     # Ultralytics는 ndarray도 입력 가능 (BGR OK)
     res = model.predict(frame_bgr, conf=conf, iou=iou, verbose=False)[0]
     if res.boxes is None or len(res.boxes) == 0:
-        return np.zeros((0,4), np.float32), np.zeros((0,), np.int64)
+        return np.zeros((0, 4), np.float32), np.zeros((0,), np.int64)
 
     xyxy = res.boxes.xyxy.cpu().numpy().astype(np.float32)
-    cls  = res.boxes.cls.cpu().numpy().astype(np.int64)
+    cls = res.boxes.cls.cpu().numpy().astype(np.int64)
     if num_classes is not None:
         keep = (cls >= 0) & (cls < num_classes)
         xyxy, cls = xyxy[keep], cls[keep]
@@ -294,7 +349,7 @@ def get_pred_gaze_points_pixels_from_frame(
         num_heads: 감지된 head 수
     """
     if frame_bgr is None:
-        raise ValueError('frame_bgr cannot be None')
+        raise ValueError("frame_bgr cannot be None")
 
     H, W = frame_bgr.shape[:2]
     img_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
@@ -306,7 +361,11 @@ def get_pred_gaze_points_pixels_from_frame(
     if gaze_points is None or len(gaze_points) == 0:
         return np.zeros((0, 2), dtype=np.float32), 0
 
-    gp = gaze_points.cpu().numpy() if hasattr(gaze_points, "cpu") else np.array(gaze_points)
+    gp = (
+        gaze_points.cpu().numpy()
+        if hasattr(gaze_points, "cpu")
+        else np.array(gaze_points)
+    )
     pts_pix = gp * np.array([W, H], dtype=np.float32)
 
     if filter_by_inout and (inouts is not None) and (len(inouts) == len(pts_pix)):
@@ -315,6 +374,7 @@ def get_pred_gaze_points_pixels_from_frame(
         pts_pix = pts_pix[keep]
 
     return pts_pix.astype(np.float32), (0 if head_bboxes is None else len(head_bboxes))
+
 
 def get_pred_gaze_points_and_heads_from_frame(
     frame_bgr: np.ndarray,
@@ -340,14 +400,24 @@ def get_pred_gaze_points_and_heads_from_frame(
     if gaze_points is None or len(gaze_points) == 0:
         gaze_pts_pix = np.zeros((0, 2), dtype=np.float32)
     else:
-        gp = gaze_points.cpu().numpy() if hasattr(gaze_points, "cpu") else np.array(gaze_points)
+        gp = (
+            gaze_points.cpu().numpy()
+            if hasattr(gaze_points, "cpu")
+            else np.array(gaze_points)
+        )
         gaze_pts_pix = gp * np.array([W, H], dtype=np.float32)
-        if filter_by_inout and (inouts is not None) and (len(inouts) == len(gaze_pts_pix)):
+        if (
+            filter_by_inout
+            and (inouts is not None)
+            and (len(inouts) == len(gaze_pts_pix))
+        ):
             io = inouts.cpu().numpy() if hasattr(inouts, "cpu") else np.array(inouts)
             gaze_pts_pix = gaze_pts_pix[io > io_thr]
 
     # (2) head 박스 (픽셀)
-    if head_bboxes is None or (hasattr(head_bboxes, "numel") and head_bboxes.numel() == 0):
+    if head_bboxes is None or (
+        hasattr(head_bboxes, "numel") and head_bboxes.numel() == 0
+    ):
         head_xyxy = np.zeros((0, 4), dtype=np.int32)
     else:
         if hasattr(head_bboxes, "cpu"):
@@ -359,7 +429,6 @@ def get_pred_gaze_points_and_heads_from_frame(
     return gaze_pts_pix.astype(np.float32), head_xyxy
 
 
-
 def accumulate_interest_from_video(
     video_path: str,
     obj_model: YOLO,
@@ -367,7 +436,7 @@ def accumulate_interest_from_video(
     sharingan: Sharingan,
     expand_kx: float = 0.01,
     expand_ky: float = 0.01,
-    frame_stride: int = 1,         # 매 프레임이면 1, 2면 1/2 샘플링
+    frame_stride: int = 1,  # 매 프레임이면 1, 2면 1/2 샘플링
     max_frames: Optional[int] = None,
     filter_by_inout: bool = False,
     io_thr: float = 0.5,
@@ -390,14 +459,17 @@ def accumulate_interest_from_video(
         n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     else:
         raise RuntimeError(f"Frame count is zero")
-    n_proc   = 0
-    n_heads  = 0
-    n_hits   = 0
+    n_proc = 0
+    n_heads = 0
+    n_hits = 0
 
     processed_frames = 0
     frame_idx = 0
 
-    while True:
+    # 비디오 총 프레임 수 가져오기
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    for _ in tqdm(range(total_frames), file=sys.stderr):
         ok, frame_bgr = cap.read()
         if not ok:
             break
@@ -410,7 +482,9 @@ def accumulate_interest_from_video(
         H, W = frame_bgr.shape[:2]
 
         # (1) obj detect
-        obj_xyxy, obj_cls = run_object_detector_on_frame(obj_model, frame_bgr, conf=CONF_THR, iou=IOU_THR, num_classes=NUM_CLASSES)
+        obj_xyxy, obj_cls = run_object_detector_on_frame(
+            obj_model, frame_bgr, conf=CONF_THR, iou=IOU_THR, num_classes=NUM_CLASSES
+        )
         if obj_xyxy.size > 0:
             obj_xyxy = expand_xyxy_rel_img(obj_xyxy, W, H, kx=expand_kx, ky=expand_ky)
 
@@ -423,7 +497,7 @@ def accumulate_interest_from_video(
             io_thr=io_thr,
         )
 
-        n_proc  += 1
+        n_proc += 1
         n_heads += int(heads_here)
 
         # (3) 관심도 누적
@@ -444,7 +518,7 @@ def accumulate_interest_from_video(
     cap.release()
 
     stats = {
-        "n_frames": n_frames,
+        "n_frames": total_frames,
         "n_proc_frames": n_proc,
         "n_heads": n_heads,
         "n_hits": n_hits,
@@ -454,13 +528,14 @@ def accumulate_interest_from_video(
 
 # 메타/랭킹/저장 유틸
 
+
 def write_ranking_txt(
     out_path: str,
-    ranked: List[Tuple[int, int, str]],            # [(cls_id, score, name), ...]
+    ranked: List[Tuple[int, int, str]],  # [(cls_id, score, name), ...]
     class_meta: Optional[Dict[int, Dict[str, str]]] = None,
     default_name_from_id: bool = True,
-    add_unranked_from_meta: bool = True,           # ← 추가: meta에만 있는 클래스도 출력
-    unranked_sort: str = "id"                      # "id" 또는 "name"
+    add_unranked_from_meta: bool = True,  # ← 추가: meta에만 있는 클래스도 출력
+    unranked_sort: str = "id",  # "id" 또는 "name"
 ) -> None:
     """
     포맷: "순위, 제품명, 카테고리, 가격"
@@ -474,12 +549,14 @@ def write_ranking_txt(
     for rank, (cid, score, name) in enumerate(ranked, start=1):
         present_cids.add(cid)
         if class_meta and cid in class_meta:
-            pname = class_meta[cid].get("name", name if default_name_from_id else str(cid))
-            cat   = class_meta[cid].get("category", "-")
+            pname = class_meta[cid].get(
+                "name", name if default_name_from_id else str(cid)
+            )
+            cat = class_meta[cid].get("category", "-")
             price = class_meta[cid].get("price", "-")
         else:
             pname = name if default_name_from_id else str(cid)
-            cat   = "-"
+            cat = "-"
             price = "-"
         lines.append(f"{rank}, {pname}, {cat}, {price}")
 
@@ -495,9 +572,9 @@ def write_ranking_txt(
             missing.sort()
 
         for cid in missing:
-            rec   = class_meta[cid]
+            rec = class_meta[cid]
             pname = rec.get("name", str(cid) if default_name_from_id else str(cid))
-            cat   = rec.get("category", "-")
+            cat = rec.get("category", "-")
             price = rec.get("price", "-")
             lines.append(f"-, {pname}, {cat}, {price}")
 
@@ -509,23 +586,74 @@ def write_ranking_txt(
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
-    print(f"[SAVE] ranking saved to: {out_path}")
+    print(f"[SAVE] ranking saved to: {out_path}", file=sys.stderr)
+
+
+import os
+from pathlib import Path
+
+# --- 경로 자동 감지 (로컬 or Render) ---
+CREDENTIALS_PATH = (
+    "/etc/secrets/credentials.json"
+    if os.path.exists("/etc/secrets/credentials.json")
+    else "credentials.json"
+)
+
+TOKENS_PATH = (
+    "/etc/secrets/drive_token.json"
+    if os.path.exists("/etc/secrets/drive_token.json")
+    else "tokens/drive_token.json"
+)
+
+
+def upload_to_drive(file_path, mime_type="video/mp4", folder_id=None):
+    """
+    Google Drive에 파일 업로드 후 (webContentLink, webViewLink) 반환
+    """
+    scopes = ["https://www.googleapis.com/auth/drive.file"]
+
+    # ✅ 경로 수정: Render 환경에서는 /etc/secrets/drive_token.json 사용
+    creds = Credentials.from_authorized_user_file(TOKENS_PATH, scopes)
+    service = build("drive", "v3", credentials=creds)
+
+    file_metadata = {"name": Path(file_path).name}
+    if folder_id:
+        file_metadata["parents"] = [folder_id]
+
+    media = MediaFileUpload(file_path, mimetype=mime_type, resumable=True)
+    uploaded = (
+        service.files()
+        .create(
+            body=file_metadata,
+            media_body=media,
+            fields="id, webContentLink, webViewLink",
+        )
+        .execute()
+    )
+
+    return uploaded["webContentLink"], uploaded["webViewLink"]
 
 
 # ========================= 비디오 시각화 & 저장 =========================
 
-def _put_filled_text(img, text, org, fs=0.5, color=(255,255,255), bg=(0,0,0), thickness=1, pad=3):
+
+def _put_filled_text(
+    img, text, org, fs=0.5, color=(255, 255, 255), bg=(0, 0, 0), thickness=1, pad=3
+):
     (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, fs, thickness)
     x, y = org
     cv2.rectangle(img, (x - pad, y - th - pad), (x + tw + pad, y + pad), bg, -1)
-    cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, fs, color, thickness, cv2.LINE_AA)
+    cv2.putText(
+        img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, fs, color, thickness, cv2.LINE_AA
+    )
+
 
 def draw_annotated_frame(
     frame_bgr: np.ndarray,
-    obj_xyxy: np.ndarray,          # (N,4) float32  (확장 적용 후)
-    obj_cls: Optional[np.ndarray], # (N,)  int64
-    head_xyxy: np.ndarray,         # (M,4) int32
-    gaze_pts: np.ndarray,          # (K,2) float32
+    obj_xyxy: np.ndarray,  # (N,4) float32  (확장 적용 후)
+    obj_cls: Optional[np.ndarray],  # (N,)  int64
+    head_xyxy: np.ndarray,  # (M,4) int32
+    gaze_pts: np.ndarray,  # (K,2) float32
     class_names: Optional[List[str]] = None,
     thickness_obj: int = 2,
     thickness_head: int = 2,
@@ -539,11 +667,20 @@ def draw_annotated_frame(
     vis = frame_bgr.copy()
 
     # 어떤 obj 박스가 하나라도 시선을 포함했는지 계산
-    hit_mask = np.zeros(len(obj_xyxy), dtype=bool) if obj_xyxy.size > 0 else np.zeros((0,), dtype=bool)
+    hit_mask = (
+        np.zeros(len(obj_xyxy), dtype=bool)
+        if obj_xyxy.size > 0
+        else np.zeros((0,), dtype=bool)
+    )
     if obj_xyxy.size > 0 and gaze_pts.size > 0:
         gx = gaze_pts[:, 0][:, None]
         gy = gaze_pts[:, 1][:, None]
-        inside = (gx >= obj_xyxy[:, 0]) & (gx <= obj_xyxy[:, 2]) & (gy >= obj_xyxy[:, 1]) & (gy <= obj_xyxy[:, 3])
+        inside = (
+            (gx >= obj_xyxy[:, 0])
+            & (gx <= obj_xyxy[:, 2])
+            & (gy >= obj_xyxy[:, 1])
+            & (gy <= obj_xyxy[:, 3])
+        )
         hit_mask = inside.any(axis=0)
 
     # 1) 객체 박스
@@ -557,7 +694,9 @@ def draw_annotated_frame(
             label = f"{cid}"
             if class_names and (0 <= cid < len(class_names)):
                 label = class_names[cid]
-            _put_filled_text(vis, label, (x1 + 3, max(15, y1 - 4)), fs=0.5, bg=(30, 30, 30))
+            _put_filled_text(
+                vis, label, (x1 + 3, max(15, y1 - 4)), fs=0.5, bg=(30, 30, 30)
+            )
 
     # 2) 머리 박스
     for hb in head_xyxy:
@@ -565,10 +704,11 @@ def draw_annotated_frame(
         cv2.rectangle(vis, (x1, y1), (x2, y2), COLOR_HEAD, thickness_head)
 
     # 3) 시선 점
-    for (gx, gy) in gaze_pts:
+    for gx, gy in gaze_pts:
         cv2.circle(vis, (int(gx), int(gy)), gaze_radius, COLOR_GAZE, -1)
 
     return vis
+
 
 def process_video_once_and_export(
     video_path: str,
@@ -576,8 +716,8 @@ def process_video_once_and_export(
     head_model: YOLO,
     sharingan: Sharingan,
     class_meta: Dict[int, Dict[str, str]],
-    out_video_path: Optional[str] = None,          # None이면 입력명__vis.mp4
-    out_ranking_txt: Optional[str] = None,         # None이면 ./out/<입력명>_ranking.txt
+    out_video_path: Optional[str] = None,  # None이면 입력명__vis.mp4
+    out_ranking_txt: Optional[str] = None,  # None이면 ./out/<입력명>_ranking.txt
     expand_kx: float = 0.01,
     expand_ky: float = 0.01,
     frame_stride: int = 1,
@@ -597,7 +737,10 @@ def process_video_once_and_export(
     """
     # class_names 만들기
     max_id = max(class_meta.keys()) if class_meta else -1
-    class_names = [class_meta[i]["name"] if i in class_meta else f"id{i}" for i in range(max_id + 1)]
+    class_names = [
+        class_meta[i]["name"] if i in class_meta else f"id{i}"
+        for i in range(max_id + 1)
+    ]
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -612,11 +755,12 @@ def process_video_once_and_export(
     out_video_path = str(Path(video_path).with_name(f"{stem}__vis.mp4"))
     out_ranking_txt = str(Path("./out") / f"{stem}_ranking.txt")
 
-
     fourcc_in = int(cap.get(cv2.CAP_PROP_FOURCC))
     writer = safe_open_video_writer(out_video_path, fps, (W, H))
     if not writer.isOpened():
-        writer = cv2.VideoWriter(out_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (W, H))
+        writer = cv2.VideoWriter(
+            out_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (W, H)
+        )
         if not writer.isOpened():
             raise RuntimeError(f"VideoWriter open failed: {out_video_path}")
 
@@ -625,14 +769,21 @@ def process_video_once_and_export(
 
     # 이 실행에서 실제로 처리할 프레임 수(= stride/최대프레임 반영) 계산
     if n_frames_total > 0:
-        frames_cap = n_frames_total if max_frames is None else min(n_frames_total, max_frames)
+        frames_cap = (
+            n_frames_total if max_frames is None else min(n_frames_total, max_frames)
+        )
         total_to_process = (frames_cap + frame_stride - 1) // frame_stride
     else:
         total_to_process = None  # 길이를 모르면 None으로 두고 동적 바를 사용
 
     # tqdm 진행률 바 준비
-    pbar = tqdm(total=total_to_process, desc="Processing", unit="f",
-                    dynamic_ncols=True, smoothing=0.1)
+    pbar = tqdm(
+        total=total_to_process,
+        desc="Processing",
+        unit="f",
+        dynamic_ncols=True,
+        smoothing=0.1,
+    )
 
     interest: Dict[int, int] = defaultdict(int)
     n_frames = n_frames_total
@@ -652,7 +803,9 @@ def process_video_once_and_export(
             continue
 
         # (1) 객체 탐지 + 확장
-        obj_xyxy, obj_cls = run_object_detector_on_frame(obj_model, frame_bgr, conf=CONF_THR, iou=IOU_THR, num_classes=NUM_CLASSES)
+        obj_xyxy, obj_cls = run_object_detector_on_frame(
+            obj_model, frame_bgr, conf=CONF_THR, iou=IOU_THR, num_classes=NUM_CLASSES
+        )
         if obj_xyxy.size > 0:
             obj_xyxy = expand_xyxy_rel_img(obj_xyxy, W, H, kx=expand_kx, ky=expand_ky)
 
@@ -721,42 +874,67 @@ def process_video_once_and_export(
         "n_heads": n_heads,
         "n_hits": n_hits,
     }
-    print(f"[DONE] video: {out_video_path} / ranking: {out_ranking_txt} / stats: {stats}")
+    print(
+        f"[DONE] video: {out_video_path} / ranking: {out_ranking_txt} / stats: {stats}",
+        file=sys.stderr,
+    )
     return out_video_path, out_ranking_txt, dict(interest), stats
-
 
 
 if __name__ == "__main__":
     # 클래스 이름
     CLASS_META = {
-        0: {"name": "birak",       "category": "beverage", "price": "2000원"},
-        1: {"name": "sprite",      "category": "beverage", "price": "1800원"},
-        2: {"name": "cornChip",    "category": "chip",     "price": "1250원"},
-        3: {"name": "cornChee",    "category": "snack",    "price": "1500원"},
-        4: {"name": "hotShrimp",   "category": "snack",    "price": "1500원"},
-        5: {"name": "chamCracker", "category": "cracker",  "price": "1200원"},
+        0: {"name": "birak", "category": "beverage", "price": "2000원"},
+        1: {"name": "sprite", "category": "beverage", "price": "1800원"},
+        2: {"name": "cornChip", "category": "chip", "price": "1250원"},
+        3: {"name": "cornChee", "category": "snack", "price": "1500원"},
+        4: {"name": "hotShrimp", "category": "snack", "price": "1500원"},
+        5: {"name": "chamCracker", "category": "cracker", "price": "1200원"},
     }
-
 
     parser = argparse.ArgumentParser(
         description="Run object/head detection + Sharingan gaze on a video once, "
-                    "save visualization video and ranking .txt in one pass."
+        "save visualization video and ranking .txt in one pass."
     )
     # 경로 옵션
-    parser.add_argument("--ckpt",  type=str, help="Sharingan checkpoint path")
-    parser.add_argument("--obj",   type=str, help="YOLO object weights path")
-    parser.add_argument("--head",  type=str, help="YOLO head weights path")
+    parser.add_argument("--ckpt", type=str, help="Sharingan checkpoint path")
+    parser.add_argument("--obj", type=str, help="YOLO object weights path")
+    parser.add_argument("--head", type=str, help="YOLO head weights path")
     parser.add_argument("--video", type=str, help="Input video path")
 
-
-    parser.add_argument("--out-video",   type=str,              default=None,       help="Output visualization video path")
-    parser.add_argument("--out-ranking", type=str,              default=None,       help="Output ranking .txt path")
-    parser.add_argument("--expand-kx",   type=float,            default=0.01,       help="Object box expand ratio (relative to width)")
-    parser.add_argument("--expand-ky",   type=float,            default=0.01,       help="Object box expand ratio (relative to height)")
-    parser.add_argument("--frame-stride",type=int,              default=1,          help="Sample every Nth frame")
-    parser.add_argument("--max-frames",  type=int,              default=None,       help="Limit number of processed frames")
-    parser.add_argument("--filter-inout",action="store_true",   default= False,     help="Filter gaze by in/out score")
-    parser.add_argument("--io-thr",      type=float,            default=0.5,        help="Threshold for in/out filtering")
+    parser.add_argument(
+        "--out-video", type=str, default=None, help="Output visualization video path"
+    )
+    parser.add_argument(
+        "--out-ranking", type=str, default=None, help="Output ranking .txt path"
+    )
+    parser.add_argument(
+        "--expand-kx",
+        type=float,
+        default=0.01,
+        help="Object box expand ratio (relative to width)",
+    )
+    parser.add_argument(
+        "--expand-ky",
+        type=float,
+        default=0.01,
+        help="Object box expand ratio (relative to height)",
+    )
+    parser.add_argument(
+        "--frame-stride", type=int, default=1, help="Sample every Nth frame"
+    )
+    parser.add_argument(
+        "--max-frames", type=int, default=None, help="Limit number of processed frames"
+    )
+    parser.add_argument(
+        "--filter-inout",
+        action="store_true",
+        default=False,
+        help="Filter gaze by in/out score",
+    )
+    parser.add_argument(
+        "--io-thr", type=float, default=0.5, help="Threshold for in/out filtering"
+    )
 
     args = parser.parse_args()
 
@@ -766,9 +944,9 @@ if __name__ == "__main__":
     # args.video = "./data/20250630_164710.mp4"
 
     # 3) 모델 로드
-    obj_model  = load_obj_detection_model(DEVICE, weights_path=args.obj)
+    obj_model = load_obj_detection_model(DEVICE, weights_path=args.obj)
     head_model = load_head_detection_model(DEVICE, weights_path=args.head)
-    sharingan  = load_sharingan_model(args.ckpt, DEVICE)
+    sharingan = load_sharingan_model(args.ckpt, DEVICE)
 
     # 4) 비디오 처리
     out_vid, out_txt, interest, stats = process_video_once_and_export(
@@ -786,3 +964,36 @@ if __name__ == "__main__":
         filter_by_inout=args.filter_inout,
         io_thr=args.io_thr,
     )
+
+    # --- JSON 결과 출력 (FastAPI용) ---
+    # --- Google Drive 업로드 --- #
+    try:
+        folder_id = "1ZRAfqwSe7vnxMqN6rlu9KcJxTmMvxMBz"
+        video_link, video_view = upload_to_drive(
+            out_vid, "video/mp4", folder_id=folder_id
+        )
+        txt_link, txt_view = upload_to_drive(out_txt, "text/plain", folder_id=folder_id)
+
+        # 로컬 파일 정리
+        os.remove(out_vid)
+        os.remove(out_txt)
+
+    except Exception as e:
+        video_link = None
+        txt_link = None
+        print(f"[Drive Upload Error] {e}", file=sys.stderr)
+
+    # --- JSON 결과 출력 (FastAPI용) --- #
+    import json
+
+    result = {
+        "video_drive_link": video_link,
+        "ranking_drive_link": txt_link,
+        "interest": interest,
+        "stats": stats,
+    }
+
+    sys.stdout.write(json.dumps(result, default=str))
+    sys.stdout.flush()
+    print(f"[UPLOAD] Video uploaded to: {video_link}", file=sys.stderr)
+    print(f"[UPLOAD] Ranking uploaded to: {txt_link}", file=sys.stderr)
