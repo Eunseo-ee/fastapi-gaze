@@ -20,5 +20,5 @@ venv/
 __pycache__/
 *.pyc
 
-credentials.json
+client_secret.json
 tokens/
