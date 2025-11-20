@@ -21,4 +21,5 @@ __pycache__/
 *.pyc
 
 client_secret.json
+credentials.json
 tokens/

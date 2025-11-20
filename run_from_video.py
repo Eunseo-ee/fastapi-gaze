@@ -45,6 +45,7 @@ COLOR_GAZE = (0, 0, 255)  # 빨강
 OUT_DIR = Path("out")
 OUT_DIR.mkdir(exist_ok=True)
 
+
 # ========================= UTILITY FUNCTIONS =========================== #
 def resolve_path(p: str | Path) -> Path:
     """
@@ -555,7 +556,7 @@ def write_ranking_txt(
             pname = name if default_name_from_id else str(cid)
             cat = "-"
             price = "-"
-        lines.append(f"{rank}, {pname}, {cat}, {price}")
+        lines.append(f"{rank},{pname},{cat},{price}")
 
     # 2) meta에만 있는 나머지 (순위 "-")
     if add_unranked_from_meta and class_meta:
@@ -645,6 +646,13 @@ def _put_filled_text(
     )
 
 
+def build_filename(date, start, end):
+    # "18:00" → "1800"
+    start_sanitized = start.replace(":", "")
+    end_sanitized = end.replace(":", "")
+    return f"{date}_{start_sanitized}~{end_sanitized}"
+
+
 def draw_annotated_frame(
     frame_bgr: np.ndarray,
     obj_xyxy: np.ndarray,  # (N,4) float32  (확장 적용 후)
@@ -713,6 +721,9 @@ def process_video_once_and_export(
     head_model: YOLO,
     sharingan: Sharingan,
     class_meta: Dict[int, Dict[str, str]],
+    date: str,
+    start: str,
+    end: str,
     out_video_path: Optional[str] = None,  # None이면 입력명__vis.mp4
     out_ranking_txt: Optional[str] = None,  # None이면 ./out/<입력명>_ranking.txt
     expand_kx: float = 0.01,
@@ -748,18 +759,19 @@ def process_video_once_and_export(
     fps = float(cap.get(cv2.CAP_PROP_FPS) or 30.0)
 
     # 출력 경로 기본값
-    stem = Path(video_path).stem
-    out_video_path = str(Path(video_path).with_name(f"{stem}__vis.mp4"))
-    out_ranking_txt = str(Path("./out") / f"{stem}_ranking.txt")
+    # --- 날짜 기반 출력 파일명 생성 ---
+    base_name = build_filename(date, start, end)
+
+    # 🔹 출력 영상 파일명: 2025-10-25_18:00~19:00.mp4
+    out_video_path = str(Path(video_path).with_name(f"{base_name}.avi"))
+
+    # 🔹 랭킹 CSV 파일명: gaze-tracking_2025-10-25_18:00~19:00.csv
+    out_ranking_txt = str(Path("./out") / f"gaze-tracking_{base_name}.csv")
 
     fourcc_in = int(cap.get(cv2.CAP_PROP_FOURCC))
-    writer = safe_open_video_writer(out_video_path, fps, (W, H))
-    if not writer.isOpened():
-        writer = cv2.VideoWriter(
-            out_video_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (W, H)
-        )
-        if not writer.isOpened():
-            raise RuntimeError(f"VideoWriter open failed: {out_video_path}")
+    writer = cv2.VideoWriter(
+        out_video_path, cv2.VideoWriter_fourcc(*"MJPG"), fps, (W, H)
+    )
 
     # 누적
     n_frames_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
@@ -933,6 +945,11 @@ if __name__ == "__main__":
         "--io-thr", type=float, default=0.5, help="Threshold for in/out filtering"
     )
 
+    # 날짜·시간 기반 출력 파일명 생성용
+    parser.add_argument("--date", type=str, required=True, help="Date (YYYY-MM-DD)")
+    parser.add_argument("--start", type=str, required=True, help="Start time (HH:MM)")
+    parser.add_argument("--end", type=str, required=True, help="End time (HH:MM)")
+
     args = parser.parse_args()
 
     # args.ckpt = "checkpoints/best_gaze_synth_experiment_3.ckpt"
@@ -952,6 +969,9 @@ if __name__ == "__main__":
         head_model=head_model,
         sharingan=sharingan,
         class_meta=CLASS_META,
+        date=args.date,
+        start=args.start,
+        end=args.end,
         out_video_path=args.out_video,  # None이면 자동 경로(입력명__vis.mp4)
         out_ranking_txt=args.out_ranking,  # None이면 ./out/<입력명>_ranking.txt
         expand_kx=args.expand_kx,
@@ -969,7 +989,7 @@ if __name__ == "__main__":
         video_link, video_view = upload_to_drive(
             out_vid, "video/mp4", folder_id=folder_id
         )
-        txt_link, txt_view = upload_to_drive(out_txt, "text/plain", folder_id=folder_id)
+        txt_link, txt_view = upload_to_drive(out_txt, "text/csv", folder_id=folder_id)
 
         # 로컬 파일 정리
         os.remove(out_vid)

@@ -8,13 +8,19 @@ app = FastAPI()
 class VideoRequest(BaseModel):
     drive_link: str  # 요청 본문에서 JSON으로 받음
 
+
 @app.get("/")
 def root():
     return {"status": "ok"}
 
 
 @app.post("/process")
-def process_video(driveLink: str = Form(...)):
+def process_video(
+    driveLink: str = Form(...),
+    date: str = Form(...),
+    start: str = Form(...),
+    end: str = Form(...),
+):
     # 1️⃣ Google Drive에서 영상 다운로드
     file_id = driveLink.split("/d/")[1].split("/")[0]
     url = f"https://drive.google.com/uc?export=download&id={file_id}"
@@ -33,11 +39,22 @@ def process_video(driveLink: str = Form(...)):
 
     # 3️⃣ run_from_video.py 실행
     command = [
-        "python", os.path.join(BASE_DIR, "run_from_video.py"),
-        "--ckpt", ckpt_path,
-        "--obj", obj_path,
-        "--head", head_path,
-        "--video", video_path
+        "python",
+        os.path.join(BASE_DIR, "run_from_video.py"),
+        "--ckpt",
+        ckpt_path,
+        "--obj",
+        obj_path,
+        "--head",
+        head_path,
+        "--video",
+        video_path,
+        "--date",
+        date,
+        "--start",
+        start,
+        "--end",
+        end,
     ]
 
     process = subprocess.run(command, capture_output=True, text=True)
@@ -53,7 +70,7 @@ def process_video(driveLink: str = Form(...)):
         return {
             "error": "Failed to parse JSON output",
             "stdout": stdout,
-            "stderr": stderr
+            "stderr": stderr,
         }
 
     # 5️⃣ 결과 반환 (Google Drive 업로드 결과 포함)
