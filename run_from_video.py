@@ -556,7 +556,7 @@ def write_ranking_txt(
             pname = name if default_name_from_id else str(cid)
             cat = "-"
             price = "-"
-        lines.append(f"{rank},{pname},{cat},{price}")
+        lines.append(f"{rank},{pname},{cat},{price},{score}")
 
     # 2) meta에만 있는 나머지 (순위 "-")
     if add_unranked_from_meta and class_meta:
@@ -574,7 +574,7 @@ def write_ranking_txt(
             pname = rec.get("name", str(cid) if default_name_from_id else str(cid))
             cat = rec.get("category", "-")
             price = rec.get("price", "-")
-            lines.append(f"-, {pname}, {cat}, {price}")
+            lines.append(f"-, {pname}, {cat}, {price},0")
 
     # 저장
     out_dir = str(Path(out_path).parent)
@@ -713,6 +713,45 @@ def draw_annotated_frame(
         cv2.circle(vis, (int(gx), int(gy)), gaze_radius, COLOR_GAZE, -1)
 
     return vis
+
+
+import subprocess
+import shutil
+
+
+def convert_avi_to_mp4(avi_path: str) -> str:
+    """
+    FFmpeg로 AVI(MJPG)를 MP4(H.264)로 변환한다.
+    avi_path: 원본 avi 파일 경로
+    Returns: 변환된 mp4 파일 경로
+    """
+    if not shutil.which("ffmpeg"):
+        raise RuntimeError(
+            "FFmpeg가 설치되어 있지 않습니다. 서버 환경에 ffmpeg 설치가 필요합니다."
+        )
+
+    mp4_path = avi_path.replace(".avi", ".mp4")
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        avi_path,
+        "-vcodec",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        mp4_path,
+    ]
+
+    # FFmpeg 실행
+    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    return mp4_path
 
 
 def process_video_once_and_export(
@@ -887,6 +926,29 @@ def process_video_once_and_export(
         f"[DONE] video: {out_video_path} / ranking: {out_ranking_txt} / stats: {stats}",
         file=sys.stderr,
     )
+    print(f"[INFO] AVI saved: {out_video_path}", file=sys.stderr)
+
+    # 🔥 AVI → MP4 변환
+    try:
+        mp4_path = convert_avi_to_mp4(out_video_path)
+        print(f"[INFO] Converted to MP4: {mp4_path}", file=sys.stderr)
+
+        # AVI 파일 삭제 (선택)
+        os.remove(out_video_path)
+
+        # 업로드할 파일 경로를 MP4로 교체
+        out_video_path = mp4_path
+
+    except Exception as e:
+        print(
+            f"[WARN] FFmpeg 변환 실패 → AVI 그대로 업로드합니다: {e}", file=sys.stderr
+        )
+
+    print(
+        f"[DONE] video: {out_video_path} / ranking: {out_ranking_txt} / stats: {stats}",
+        file=sys.stderr,
+    )
+
     return out_video_path, out_ranking_txt, dict(interest), stats
 
 
