@@ -556,7 +556,7 @@ def write_ranking_txt(
             pname = name if default_name_from_id else str(cid)
             cat = "-"
             price = "-"
-        lines.append(f"{rank},{pname},{cat},{price}")
+        lines.append(f"{rank},{pname},{cat},{price},{score}")
 
     # 2) meta에만 있는 나머지 (순위 "-")
     if add_unranked_from_meta and class_meta:
@@ -574,7 +574,7 @@ def write_ranking_txt(
             pname = rec.get("name", str(cid) if default_name_from_id else str(cid))
             cat = rec.get("category", "-")
             price = rec.get("price", "-")
-            lines.append(f"-, {pname}, {cat}, {price}")
+            lines.append(f"-, {pname}, {cat}, {price}, 0")
 
     # 저장
     out_dir = str(Path(out_path).parent)
